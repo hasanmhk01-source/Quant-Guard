@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+pydantic
+ccxt
+python-multipart       # required by FastAPI to handle file uploads (strategy document upload)
+
+# Strategy assistant - install only the provider(s) you actually plan to use.
+# The app works fine with none of these installed (falls back to a
+# rule-based parser); add one to get real language understanding.
+anthropic              # for ANTHROPIC_API_KEY (Claude)
+google-generativeai    # for GEMINI_API_KEY (Google - has a genuinely free tier)
+openai                 # for XAI_API_KEY (Grok - xAI's API is OpenAI-compatible)
+
+# Document upload (optional - only needed for the file types you'll actually use)
+pypdf                  # for uploading .pdf strategy descriptions
+python-docx             # for uploading .docx strategy descriptions
