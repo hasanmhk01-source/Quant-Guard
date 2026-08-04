@@ -1,4 +1,4 @@
-app = "quantguard"
+app = "quantguard-hk501"
 primary_region = "ams"
 
 [build]
