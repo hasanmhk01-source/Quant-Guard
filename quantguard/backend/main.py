@@ -24,6 +24,10 @@ import os
 import asyncio
 from datetime import datetime, timezone
 from typing import List
+from fastapi.responses import FileResponse
+@app.get("/")
+def serve_dashboard():
+    return FileResponse("frontend/index.html")
 
 from fastapi import FastAPI, Header, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
