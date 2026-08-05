@@ -198,10 +198,13 @@ class NewAccountResponse(BaseModel):
 
 
 # --- Endpoints ------------------------------------------------------------
-@app.get("/")
+@app.get("/api/status")
 def root():
     return {"service": "QuantGuard", "status": "running", "broker": broker.name}
 
+@app.get("/")
+def serve_dashboard():
+    return FileResponse("frontend/index.html")
 
 @app.post("/accounts", response_model=NewAccountResponse)
 def create_account(req: NewAccountRequest):
