@@ -24,12 +24,22 @@ import os
 import asyncio
 from datetime import datetime, timezone
 from typing import List
+
+
+from fastapi import FastAPI, Header, HTTPException, UploadFile, File
+
 from fastapi.responses import FileResponse
-@app.get("/")
+# ...your other imports...
+
+app = FastAPI()          # <-- this line MUST come first
+
+# ...your other setup (CORS middleware, etc.)...
+
+@app.get("/")             # <-- THIS comes after app is created
 def serve_dashboard():
     return FileResponse("frontend/index.html")
 
-from fastapi import FastAPI, Header, HTTPException, UploadFile, File
+# ...rest of your endpoints...
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
