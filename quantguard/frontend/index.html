@@ -5,14 +5,25 @@
 <title>QuantGuard</title>
 <style>
   :root {
-    --bg: #0B0E11; --panel: #12161B; --border: #1F252C; --text: #E6E9ED;
-    --text-dim: #6B7684; --accent: #3DDC97; --danger: #FF5D5D; --amber: #F0B429;
+    --bg: #0B0E11;
+    --panel: #12161B;
+    --border: #1F252C;
+    --text: #E6E9ED;
+    --text-dim: #6B7684;
+    --accent: #3DDC97;   /* approved / pass */
+    --danger: #FF5D5D;    /* rejected */
+    --amber: #F0B429;     /* pending / info */
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; }
-  .mono { font-family: 'JetBrains Mono', monospace; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  .mono { font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Courier New', monospace; }
 
-  /* --- Landing / auth screen --- */
+  /* --- Auth / login-signup screen --- */
   #auth-screen {
     min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column;
   }
@@ -25,12 +36,6 @@
   .tabs { display: flex; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
   .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--text-dim); }
   .tab.active { background: var(--accent); color: #08110D; }
-  label { display: block; font-size: 12px; color: var(--text-dim); margin: 14px 0 6px; }
-  input {
-    width: 100%; background: #0D1115; border: 1px solid var(--border); color: var(--text);
-    padding: 10px 12px; border-radius: 5px; font-size: 14px; font-family: inherit;
-  }
-  input:focus { outline: none; border-color: var(--accent); }
   .auth-btn {
     width: 100%; margin-top: 22px; padding: 12px; border-radius: 5px; border: none;
     background: var(--accent); color: #08110D; font-weight: 700; font-size: 14px; cursor: pointer;
@@ -40,22 +45,177 @@
 
   /* --- Dashboard shell (shown after login) --- */
   #dashboard { display: none; }
+
   header {
-    padding: 18px 32px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
   }
-  header h1 { font-size: 18px; margin: 0; }
+  header h1 {
+    font-size: 18px;
+    letter-spacing: 0.02em;
+    margin: 0;
+  }
   header h1 span { color: var(--accent); }
+  header .status {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 6px;
+  }
   .logout-btn {
     padding: 7px 14px; border-radius: 5px; border: 1px solid var(--border);
     background: transparent; color: var(--text-dim); font-size: 12px; cursor: pointer;
   }
-  main { max-width: 900px; margin: 0 auto; padding: 24px 32px; display: flex; flex-direction: column; gap: 20px; }
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
-  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin: 0 0 16px; }
+
+  main {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+    padding: 24px 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (max-width: 800px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+  .panel h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin: 0 0 16px 0;
+  }
+
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin: 14px 0 6px;
+  }
+  label:first-of-type { margin-top: 0; }
+  input, select {
+    width: 100%;
+    background: #0D1115;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 10px;
+    border-radius: 5px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .side-toggle {
+    display: flex;
+    gap: 8px;
+  }
+  .side-toggle button {
+    flex: 1;
+    padding: 9px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: #0D1115;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .side-toggle button.active-buy { background: rgba(61,220,151,0.12); border-color: var(--accent); color: var(--accent); }
+  .side-toggle button.active-sell { background: rgba(255,93,93,0.12); border-color: var(--danger); color: var(--danger); }
+
+  .notional {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .notional span { color: var(--text); font-weight: 600; }
+
+  button.submit {
+    width: 100%;
+    margin-top: 18px;
+    padding: 11px;
+    border-radius: 5px;
+    border: none;
+    background: var(--accent);
+    color: #08110D;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button.submit:hover { opacity: 0.9; }
+  button.submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .badge.pass { background: rgba(61,220,151,0.14); color: var(--accent); }
+  .badge.reject { background: rgba(255,93,93,0.14); color: var(--danger); }
+  .badge.pending { background: rgba(240,180,41,0.14); color: var(--amber); }
+  .badge.neutral { background: rgba(107,118,132,0.14); color: var(--text-dim); }
+
+  .empty {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+    padding: 40px 0;
+  }
+
+  .reason { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+  .config-note {
+    margin-top: 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* --- API key panel + broker connect panel (from login version) --- */
   .field-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
   .field-row .k { color: var(--text-dim); }
-  .status-pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
   .status-pill.connected { background: rgba(61,220,151,0.14); color: var(--accent); }
   .status-pill.disconnected { background: rgba(240,180,41,0.14); color: var(--amber); }
   .btn {
@@ -65,6 +225,110 @@
   .btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
   .copy-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
   .copy-row input { flex: 1; }
+
+  /* --- Strategy Assistant --- */
+  .strategy-section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 32px 32px;
+  }
+  .chat-log {
+    max-height: 340px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-right: 4px;
+  }
+  .msg {
+    max-width: 80%;
+    padding: 10px 13px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .msg.user {
+    align-self: flex-end;
+    background: rgba(61,220,151,0.10);
+    border: 1px solid rgba(61,220,151,0.25);
+  }
+  .msg.assistant {
+    align-self: flex-start;
+    background: #0D1115;
+    border: 1px solid var(--border);
+  }
+  .msg.assistant ul { margin: 6px 0 0; padding-left: 18px; }
+  .msg.assistant li { margin: 4px 0; }
+  .strategy-input-row {
+    display: flex;
+    gap: 8px;
+  }
+  .strategy-input-row input {
+    flex: 1;
+  }
+  .strategy-input-row button {
+    padding: 0 20px;
+    border-radius: 5px;
+    border: none;
+    background: var(--accent);
+    color: #08110D;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .strategy-input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .status-pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    margin-bottom: 12px;
+  }
+  .status-pill.needs-clarification { background: rgba(240,180,41,0.14); color: var(--amber); }
+  .status-pill.ready { background: rgba(61,220,151,0.14); color: var(--accent); }
+  .status-pill.approved { background: rgba(61,220,151,0.22); color: var(--accent); }
+
+  .review-box {
+    margin-top: 14px;
+    padding: 14px;
+    background: #0D1115;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .review-box .field-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 13px;
+  }
+  .review-box .field-row .k { color: var(--text-dim); }
+  .review-box .field-row .v { font-family: 'JetBrains Mono', monospace; }
+  .approve-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 5px;
+    border: none;
+    background: var(--accent);
+    color: #08110D;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .new-strategy-btn {
+    margin-top: 10px;
+    padding: 6px 14px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -105,28 +369,31 @@
 <div id="dashboard">
   <header>
     <h1>Quant<span>Guard</span></h1>
-    <div>
-      <span id="welcome-text" class="mono" style="color:var(--text-dim); font-size:13px; margin-right:16px;"></span>
+    <div style="display:flex; align-items:center; gap:18px;">
+      <span class="status"><span class="dot"></span>connected to <span id="broker-status-name" class="mono">—</span></span>
+      <span id="welcome-text" class="mono" style="color:var(--text-dim); font-size:13px;"></span>
       <button class="logout-btn" onclick="doLogout()">Log out</button>
     </div>
   </header>
 
-  <main>
+  <div class="strategy-section" style="padding-top:24px;">
     <div class="panel">
       <h2>Your API Key</h2>
-      <p style="font-size:12px; color:var(--text-dim); margin:0 0 4px;">Use this to connect MT5's Expert Advisor or TradingView webhooks.</p>
+      <p style="font-size:12px; color:var(--text-dim); margin:0 0 4px;">Use this to connect MT5's Expert Advisor or TradingView webhooks. This key also powers the order form, chart and strategies below.</p>
       <div class="copy-row">
         <input id="api-key-display" class="mono" readonly />
         <button class="btn secondary" style="margin:0;" onclick="copyApiKey()">Copy</button>
       </div>
     </div>
+  </div>
 
+  <div class="strategy-section">
     <div class="panel">
       <h2>Broker Connection</h2>
       <div id="broker-status"></div>
       <div id="broker-form" style="margin-top:14px;">
         <label>Broker</label>
-        <input id="broker-name" class="mono" value="binance" />
+        <input id="broker-name-input" class="mono" value="binance" />
         <label>API Key</label>
         <input id="broker-api-key" class="mono" placeholder="your Binance API key" />
         <label>API Secret</label>
@@ -137,26 +404,122 @@
         <button class="btn" onclick="connectBroker()">Connect broker</button>
       </div>
     </div>
+  </div>
+
+  <main>
+    <div class="panel">
+      <h2>Submit Order</h2>
+
+      <label>Symbol</label>
+      <input id="symbol" class="mono" value="BTCUSDT" />
+
+      <label>Side</label>
+      <div class="side-toggle">
+        <button id="btn-buy" class="active-buy" onclick="setSide('BUY')">BUY</button>
+        <button id="btn-sell" onclick="setSide('SELL')">SELL</button>
+      </div>
+
+      <label>Quantity</label>
+      <input id="quantity" class="mono" type="number" step="any" value="0.5" oninput="updateNotional()" />
+
+      <label>Price (USD)</label>
+      <input id="price" class="mono" type="number" step="any" value="65000" oninput="updateNotional()" />
+
+      <div class="notional">Order notional: <span id="notional-value" class="mono">$32,500.00</span></div>
+
+      <button class="submit" onclick="submitOrder()">Send to Risk Engine →</button>
+
+      <div class="config-note">
+        Every order is checked against your risk rules before it ever reaches a broker.
+        Currently running against a simulated exchange (no live funds).
+      </div>
+    </div>
 
     <div class="panel">
-      <h2>Submit Test Order</h2>
-      <label>Symbol</label>
-      <input id="order-symbol" class="mono" value="BTCUSDT" />
-      <label>Side</label>
-      <input id="order-side" class="mono" value="BUY" />
-      <label>Quantity</label>
-      <input id="order-qty" class="mono" type="number" value="0.01" step="any" />
-      <label>Price</label>
-      <input id="order-price" class="mono" type="number" value="65000" step="any" />
-      <button class="btn" onclick="submitOrder()">Submit order</button>
-      <div id="order-result" style="margin-top:12px; font-size:13px;"></div>
+      <h2>Order Log</h2>
+      <div id="log-container">
+        <div class="empty">No orders submitted yet.</div>
+      </div>
     </div>
   </main>
+
+  <div class="strategy-section">
+    <div class="panel">
+      <h2>Price Chart</h2>
+      <div style="display:flex; gap:8px; margin-bottom:14px; align-items:center;">
+        <input id="chart-symbol" class="mono" value="BTCUSDT" style="max-width:140px;" placeholder="symbol" />
+        <select id="chart-timeframe" style="padding:9px 10px; background:#0D1115; border:1px solid var(--border); border-radius:5px; color:var(--text); font-size:13px;">
+          <option value="1m">1m</option>
+          <option value="5m">5m</option>
+          <option value="15m">15m</option>
+          <option value="1h" selected>1h</option>
+          <option value="4h">4h</option>
+          <option value="1d">1d</option>
+        </select>
+        <button style="padding:9px 16px; border-radius:5px; border:none; background:var(--accent); color:#08110D; font-weight:700; font-size:13px; cursor:pointer;" onclick="loadChart()">Load</button>
+        <span id="chart-price" class="mono" style="margin-left:auto; font-size:16px; font-weight:700;"></span>
+      </div>
+      <canvas id="price-canvas" width="1000" height="260" style="width:100%; height:260px; display:block;"></canvas>
+      <div id="chart-note" class="config-note"></div>
+    </div>
+  </div>
+
+  <div class="strategy-section">
+    <div class="panel">
+      <h2>My Strategies</h2>
+      <div id="strategies-list">
+        <div class="empty">No strategies yet - describe one below.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="strategy-section">
+    <div class="panel">
+      <h2>Open Positions</h2>
+      <div id="positions-list">
+        <div class="empty">No open positions.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="strategy-section">
+    <div class="panel">
+      <h2>Strategy Assistant</h2>
+      <div id="strategy-status"></div>
+
+      <div id="chat-log" class="chat-log"></div>
+
+      <div id="strategy-input-area" class="strategy-input-row">
+        <input id="strategy-input" class="mono" placeholder="Describe your strategy in plain English, e.g. &quot;Buy BTCUSDT when it dips 3% from the daily high&quot;" />
+        <button id="strategy-send-btn" onclick="sendStrategyMessage()">Send</button>
+      </div>
+
+      <div style="margin-top:10px; display:flex; align-items:center; gap:10px;">
+        <span style="font-size:11px; color:var(--text-dim);">or upload a strategy document (.txt, .md, .pdf, .docx):</span>
+        <input type="file" id="strategy-file-input" accept=".txt,.md,.pdf,.docx" style="font-size:12px; color:var(--text-dim); max-width:240px;" onchange="uploadStrategyFile()" />
+      </div>
+
+      <div id="review-area"></div>
+
+      <div class="config-note">
+        This only translates your description into a structured, reviewable rule set - it does not
+        place any trades. Nothing about your strategy is decided by AI at trade time; only the
+        one-time translation step uses it, and you always approve the final result yourself.
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-  const API_BASE = "";  // same origin - works both locally and once deployed
+  // API_BASE is used by every request below - both the login/signup calls and the
+  // dashboard's order/chart/strategy calls. Same origin works if your backend is
+  // served alongside this file; set this to e.g. "http://localhost:8000" if your
+  // backend runs on a separate port during local development.
+  const API_BASE = "";
 
+  /* =========================================================
+     AUTH: login / signup / session (landing page)
+     ========================================================= */
   function getSession() { return localStorage.getItem("qg_session"); }
   function setSession(token, account) {
     localStorage.setItem("qg_session", token);
@@ -214,12 +577,13 @@
     return { "Authorization": "Bearer " + getSession() };
   }
 
-  function showDashboard() {
+  async function showDashboard() {
     document.getElementById("auth-screen").style.display = "none";
     document.getElementById("dashboard").style.display = "block";
     document.getElementById("welcome-text").textContent = localStorage.getItem("qg_account");
-    loadApiKey();
+    await loadApiKey();
     loadBrokerStatus();
+    initDashboardData();
   }
 
   async function loadApiKey() {
@@ -228,6 +592,9 @@
       if (res.status === 401) { doLogout(); return; }
       const data = await res.json();
       document.getElementById("api-key-display").value = data.api_key;
+      // Feed the platform key into the same storage the order/chart/strategy
+      // functions below already read from, so they authenticate automatically.
+      setStoredKey(data.api_key);
     } catch (e) { /* backend not reachable */ }
   }
 
@@ -249,7 +616,7 @@
   }
 
   async function connectBroker() {
-    const broker_name = document.getElementById("broker-name").value.trim();
+    const broker_name = document.getElementById("broker-name-input").value.trim();
     const api_key = document.getElementById("broker-api-key").value.trim();
     const api_secret = document.getElementById("broker-api-secret").value.trim();
     const testnet = document.getElementById("broker-testnet").checked;
@@ -265,29 +632,589 @@
     } catch (e) { alert("Couldn't reach the server."); }
   }
 
-  async function submitOrder() {
-    const body = {
-      symbol: document.getElementById("order-symbol").value.trim().toUpperCase(),
-      side: document.getElementById("order-side").value.trim().toUpperCase(),
-      quantity: parseFloat(document.getElementById("order-qty").value),
-      price: parseFloat(document.getElementById("order-price").value),
-    };
-    const key = document.getElementById("api-key-display").value;
-    const resultBox = document.getElementById("order-result");
+  /* =========================================================
+     DASHBOARD: original QuantGuard frontend
+     (order form, order log, chart, positions, strategy assistant)
+     ========================================================= */
+  let currentSide = "BUY";
+
+  // The platform API key persists across reloads via localStorage. It's set
+  // automatically by loadApiKey() above right after login/signup.
+  function getStoredKey() { return localStorage.getItem("quantguard_api_key") || ""; }
+  function setStoredKey(key) { localStorage.setItem("quantguard_api_key", key); }
+
+  function setSide(side) {
+    currentSide = side;
+    document.getElementById("btn-buy").className = side === "BUY" ? "active-buy" : "";
+    document.getElementById("btn-sell").className = side === "SELL" ? "active-sell" : "";
+  }
+
+  function updateNotional() {
+    const q = parseFloat(document.getElementById("quantity").value) || 0;
+    const p = parseFloat(document.getElementById("price").value) || 0;
+    document.getElementById("notional-value").textContent =
+      "$" + (q * p).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  async function loadStatus() {
     try {
-      const res = await fetch(`${API_BASE}/orders`, {
-        method: "POST", headers: { "X-API-Key": key, "Content-Type": "application/json" }, body: JSON.stringify(body),
-      });
+      const res = await fetch(`${API_BASE}/`);
       const data = await res.json();
-      resultBox.innerHTML = res.ok
-        ? `<span style="color:var(--accent);">Approved</span> - ${data.execution ? data.execution.message : ""}`
-        : `<span style="color:var(--danger);">Rejected</span> - ${(data.rule_results || []).join("; ")}`;
+      document.getElementById("broker-status-name").textContent = data.broker;
     } catch (e) {
-      resultBox.textContent = "Couldn't reach the server.";
+      document.getElementById("broker-status-name").textContent = "backend not running";
     }
   }
 
-  // On page load: if already logged in (session in localStorage), skip straight to dashboard
+  async function submitOrder() {
+    const key = getStoredKey();
+    if (!key) { alert("Log in first."); return; }
+    const body = {
+      symbol: document.getElementById("symbol").value,
+      side: currentSide,
+      quantity: parseFloat(document.getElementById("quantity").value),
+      price: parseFloat(document.getElementById("price").value),
+    };
+    try {
+      const res = await fetch(`${API_BASE}/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": key },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Order rejected by the API: " + (err.detail || res.statusText));
+        return;
+      }
+      await res.json();
+      loadOrders();
+    } catch (e) {
+      alert("Couldn't reach the QuantGuard backend.");
+    }
+  }
+
+  async function loadOrders() {
+    const key = getStoredKey();
+    if (!key) return; // nothing to show until a key exists
+    try {
+      const res = await fetch(`${API_BASE}/orders`, { headers: { "X-API-Key": key } });
+      if (!res.ok) return; // invalid/missing key - leave the log as-is
+      const orders = await res.json();
+      renderOrders(orders);
+    } catch (e) {
+      // backend not up yet; leave empty state
+    }
+  }
+
+  function renderOrders(orders) {
+    const container = document.getElementById("log-container");
+    if (!orders.length) {
+      container.innerHTML = '<div class="empty">No orders submitted yet.</div>';
+      return;
+    }
+    let rows = orders.map(o => {
+      const badge = o.approved
+        ? '<span class="badge pass">APPROVED</span>'
+        : '<span class="badge reject">REJECTED</span>';
+      const reason = o.approved
+        ? (o.execution ? o.execution.message : "")
+        : o.rule_results.filter(r => r.includes("REJECT")).join("; ");
+      return `<tr>
+        <td class="mono">${o.side} ${o.quantity} ${o.symbol} @ $${Number(o.price).toLocaleString()}</td>
+        <td>${badge}<div class="reason">${reason}</div></td>
+      </tr>`;
+    }).join("");
+    container.innerHTML = `<table><thead><tr><th>Order</th><th>Result</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  // --- Positions ---
+  async function loadPositions() {
+    const key = getStoredKey();
+    if (!key) return;
+    try {
+      const res = await fetch(`${API_BASE}/positions`, { headers: { "X-API-Key": key } });
+      if (!res.ok) return;
+      const positions = await res.json();
+      renderPositions(positions);
+    } catch (e) {
+      // backend not up yet; leave whatever was last shown
+    }
+  }
+
+  function renderPositions(positions) {
+    const container = document.getElementById("positions-list");
+    if (!positions.length) {
+      container.innerHTML = '<div class="empty">No open positions.</div>';
+      return;
+    }
+    const rows = positions.map(p => {
+      const side = p.quantity > 0 ? "LONG" : "SHORT";
+      const sideColor = p.quantity > 0 ? "var(--accent)" : "var(--danger)";
+      const pnlKnown = p.unrealized_pnl !== null && p.unrealized_pnl !== undefined;
+      const pnlColor = pnlKnown ? (p.unrealized_pnl >= 0 ? "var(--accent)" : "var(--danger)") : "var(--text-dim)";
+      const pnlText = pnlKnown
+        ? `${p.unrealized_pnl >= 0 ? "+" : ""}$${p.unrealized_pnl.toFixed(2)} (${p.unrealized_pct >= 0 ? "+" : ""}${p.unrealized_pct.toFixed(2)}%)`
+        : "price unavailable";
+      return `<tr>
+        <td class="mono"><span style="color:${sideColor};font-weight:700;">${side}</span> ${Math.abs(p.quantity)} ${escapeHtml(p.symbol)}</td>
+        <td class="mono">avg $${p.avg_price.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+        <td class="mono">${p.current_price !== null ? "$" + p.current_price.toLocaleString(undefined, {maximumFractionDigits: 2}) : "-"}</td>
+        <td class="mono" style="color:${pnlColor};font-weight:700;">${pnlText}</td>
+      </tr>`;
+    }).join("");
+    container.innerHTML = `<table><thead><tr><th>Position</th><th>Entry</th><th>Current</th><th>Unrealized P&amp;L</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  // --- Price Chart ---
+  async function loadChart() {
+    const key = getStoredKey();
+    const symbol = document.getElementById("chart-symbol").value.trim().toUpperCase();
+    const timeframe = document.getElementById("chart-timeframe").value;
+    const note = document.getElementById("chart-note");
+    if (!key) { note.textContent = "Log in first."; return; }
+    if (!symbol) return;
+
+    note.textContent = "Loading...";
+    try {
+      const res = await fetch(`${API_BASE}/market/${symbol}/candles?timeframe=${timeframe}&limit=100`, {
+        headers: { "X-API-Key": key },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        note.textContent = "Couldn't load chart: " + (err.detail || res.statusText);
+        return;
+      }
+      const data = await res.json();
+      drawChart(data.candles);
+      const last = data.candles[data.candles.length - 1];
+      document.getElementById("chart-price").textContent = "$" + last.close.toLocaleString(undefined, {maximumFractionDigits: 2});
+      note.textContent = `${data.symbol} · ${data.timeframe} · ${data.candles.length} candles`;
+    } catch (e) {
+      note.textContent = "Couldn't reach the QuantGuard backend.";
+    }
+  }
+
+  function drawChart(candles) {
+    const canvas = document.getElementById("price-canvas");
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    if (!candles || candles.length < 2) return;
+
+    const closes = candles.map(c => c.close);
+    const min = Math.min(...closes), max = Math.max(...closes);
+    const range = (max - min) || 1;
+    const padding = 20;
+
+    const toX = i => padding + (i / (closes.length - 1)) * (w - padding * 2);
+    const toY = price => h - padding - ((price - min) / range) * (h - padding * 2);
+
+    ctx.strokeStyle = "#1F252C";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding, h / 2);
+    ctx.lineTo(w - padding, h / 2);
+    ctx.stroke();
+
+    ctx.fillStyle = "#6B7684";
+    ctx.font = "11px monospace";
+    ctx.fillText(max.toLocaleString(undefined, {maximumFractionDigits: 2}), padding, 14);
+    ctx.fillText(min.toLocaleString(undefined, {maximumFractionDigits: 2}), padding, h - 6);
+
+    const rising = closes[closes.length - 1] >= closes[0];
+    ctx.strokeStyle = rising ? "#3DDC97" : "#FF5D5D";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    closes.forEach((price, i) => {
+      const x = toX(i), y = toY(price);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    ctx.lineTo(toX(closes.length - 1), h - padding);
+    ctx.lineTo(toX(0), h - padding);
+    ctx.closePath();
+    ctx.fillStyle = rising ? "rgba(61,220,151,0.08)" : "rgba(255,93,93,0.08)";
+    ctx.fill();
+  }
+
+  // --- Strategy Assistant ---
+  let currentStrategyId = null;
+  let currentStrategyStatus = null;
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function addChatMessage(role, html) {
+    const log = document.getElementById("chat-log");
+    const div = document.createElement("div");
+    div.className = "msg " + role;
+    div.innerHTML = html;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function renderStatusPill(status) {
+    const map = {
+      NEEDS_CLARIFICATION: ["needs-clarification", "Needs more info"],
+      READY_FOR_REVIEW: ["ready", "Ready for review"],
+      APPROVED: ["approved", "Approved"],
+    };
+    const [cls, label] = map[status] || ["", status];
+    document.getElementById("strategy-status").innerHTML =
+      status ? `<span class="status-pill ${cls}">${label}</span>` : "";
+  }
+
+  function formatIndicatorRef(ref) {
+    return ref.period ? `${ref.indicator}(${ref.period})` : ref.indicator;
+  }
+
+  function formatCondition(cond) {
+    const rightStr = cond.right.type === "indicator" ? formatIndicatorRef(cond.right.value) : cond.right.value;
+    return `${formatIndicatorRef(cond.left)} ${cond.operator} ${rightStr}`;
+  }
+
+  function formatConditionGroup(group) {
+    const parts = group.items.map(item => {
+      if (item.kind === "group") {
+        return `(${formatConditionGroup(item)})`;
+      }
+      return formatCondition(item);
+    });
+    return parts.join(` ${group.logic} `);
+  }
+
+  function renderReviewBox(strategy, status) {
+    const area = document.getElementById("review-area");
+    if (!["READY_FOR_REVIEW", "APPROVED", "ACTIVE", "PAUSED"].includes(status)) {
+      area.innerHTML = "";
+      return;
+    }
+    const rows = [
+      ["Symbol", strategy.symbol],
+      ["Side", strategy.side],
+      ["Entry condition", strategy.entry_description],
+      ["Timeframe", strategy.default_timeframe || "1h"],
+      ["Position size", strategy.position_size],
+      ["Stop loss", strategy.stop_loss_pct != null ? strategy.stop_loss_pct + "%" : "-"],
+      ["Take profit", strategy.take_profit_pct != null ? strategy.take_profit_pct + "%" : "not set"],
+      ["Max daily loss", strategy.max_daily_loss != null ? "$" + strategy.max_daily_loss : "not set"],
+    ].map(([k, v]) => `<div class="field-row"><span class="k">${k}</span><span class="v">${escapeHtml(String(v))}</span></div>`).join("");
+
+    const isExecutable = !!strategy.entry_conditions;
+    const executableRow = isExecutable
+      ? `<div class="field-row"><span class="k">Executable logic</span><span class="v" style="color:var(--accent);">${escapeHtml(formatConditionGroup(strategy.entry_conditions))}</span></div>`
+      : `<div class="field-row"><span class="k">Executable logic</span><span class="v" style="color:var(--amber);">not structured yet</span></div>`;
+
+    const executableNote = !isExecutable
+      ? `<div style="font-size:11px;color:var(--text-dim);margin-top:8px;">This strategy is complete and can be approved, but isn't automatable yet - its entry condition wasn't specific enough to turn into mechanically-checkable logic. A real LLM parser (Claude/Gemini/Grok) usually handles this better than the built-in rule-based one.</div>`
+      : "";
+
+    let actionHtml = "";
+    if (status === "READY_FOR_REVIEW") {
+      actionHtml = `<button class="approve-btn" onclick="approveStrategy()">Approve this strategy</button>`;
+    } else if (status === "APPROVED") {
+      const activateBtn = isExecutable
+        ? `<button class="approve-btn" onclick="activateStrategy()">▶ Activate - start live monitoring</button>`
+        : `<div style="font-size:11px;color:var(--amber);margin-top:10px;">Can't activate - not structured/executable (see above).</div>`;
+      actionHtml = `<div style="color:var(--accent); font-weight:700; margin-top:10px; font-size:13px;">✓ Approved - saved, not yet trading live.</div>
+                    ${activateBtn}
+                    <button class="new-strategy-btn" onclick="resetStrategyChat()">Describe another strategy</button>`;
+    } else if (status === "ACTIVE") {
+      actionHtml = `<div style="color:var(--accent); font-weight:700; margin-top:10px; font-size:13px;"><span class="dot"></span> LIVE - checked every 60s</div>
+                    <button class="approve-btn" style="background:var(--danger);color:#fff;" onclick="pauseStrategy()">⏸ Pause</button>`;
+    } else if (status === "PAUSED") {
+      actionHtml = `<div style="color:var(--text-dim); font-weight:700; margin-top:10px; font-size:13px;">⏸ Paused - not monitoring. Any open position stays open.</div>
+                    <button class="approve-btn" onclick="activateStrategy()">▶ Resume</button>
+                    <button class="new-strategy-btn" onclick="resetStrategyChat()">Describe another strategy</button>`;
+    }
+
+    area.innerHTML = `<div class="review-box"><div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Review</div>${rows}${executableRow}${executableNote}${actionHtml}</div>`;
+  }
+
+  async function activateStrategy(idOverride) {
+    const key = getStoredKey();
+    const id = idOverride !== undefined ? idOverride : currentStrategyId;
+    if (!key || id === null) return;
+    try {
+      const res = await fetch(`${API_BASE}/strategies/${id}/activate`, {
+        method: "POST", headers: { "X-API-Key": key },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Couldn't activate: " + (err.detail || res.statusText));
+        return;
+      }
+      const data = await res.json();
+      if (id === currentStrategyId) {
+        currentStrategyStatus = data.status;
+        renderStatusPill(data.status);
+        renderReviewBox(data.strategy, data.status);
+        addChatMessage("assistant", "Strategy is now LIVE - watching the market and will trade automatically when the entry condition is met.");
+      }
+      loadStrategiesList();
+    } catch (e) {
+      alert("Couldn't reach the QuantGuard backend.");
+    }
+  }
+
+  async function pauseStrategy(idOverride) {
+    const key = getStoredKey();
+    const id = idOverride !== undefined ? idOverride : currentStrategyId;
+    if (!key || id === null) return;
+    try {
+      const res = await fetch(`${API_BASE}/strategies/${id}/pause`, {
+        method: "POST", headers: { "X-API-Key": key },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Couldn't pause: " + (err.detail || res.statusText));
+        return;
+      }
+      const data = await res.json();
+      if (id === currentStrategyId) {
+        currentStrategyStatus = data.status;
+        renderStatusPill(data.status);
+        renderReviewBox(data.strategy, data.status);
+        addChatMessage("assistant", "Strategy paused. Any open position it holds stays open - pausing only stops new decisions.");
+      }
+      loadStrategiesList();
+    } catch (e) {
+      alert("Couldn't reach the QuantGuard backend.");
+    }
+  }
+
+  function viewStrategy(id, strategy, status) {
+    currentStrategyId = id;
+    currentStrategyStatus = status;
+    document.getElementById("chat-log").innerHTML = "";
+    renderStatusPill(status);
+    renderReviewBox(strategy, status);
+    addChatMessage("assistant", `Loaded strategy #${id} for review below.`);
+    document.getElementById("review-area").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  async function loadStrategiesList() {
+    const key = getStoredKey();
+    if (!key) return;
+    try {
+      const res = await fetch(`${API_BASE}/strategies`, { headers: { "X-API-Key": key } });
+      if (!res.ok) return;
+      const strategies = await res.json();
+      renderStrategiesList(strategies);
+    } catch (e) {
+      // backend not up yet; leave whatever was last shown
+    }
+  }
+
+  function renderStrategiesList(strategies) {
+    const container = document.getElementById("strategies-list");
+    if (!strategies.length) {
+      container.innerHTML = '<div class="empty">No strategies yet - describe one below.</div>';
+      return;
+    }
+    const statusClass = { NEEDS_CLARIFICATION: "pending", READY_FOR_REVIEW: "pending", APPROVED: "pending", ACTIVE: "pass", PAUSED: "neutral" };
+    const statusLabel = { NEEDS_CLARIFICATION: "INCOMPLETE", READY_FOR_REVIEW: "NEEDS REVIEW", APPROVED: "APPROVED", ACTIVE: "LIVE", PAUSED: "PAUSED" };
+
+    const rows = strategies.map(s => {
+      const strat = s.strategy;
+      const badge = `<span class="badge ${statusClass[s.status] || 'reject'}">${statusLabel[s.status] || s.status}</span>`;
+      const logic = strat.entry_conditions
+        ? formatConditionGroup(strat.entry_conditions)
+        : (strat.entry_description || "-");
+
+      let actionBtn = "";
+      if (s.status === "APPROVED" && strat.entry_conditions) {
+        actionBtn = `<button class="new-strategy-btn" onclick="activateStrategy(${s.id})">Activate</button>`;
+      } else if (s.status === "ACTIVE") {
+        actionBtn = `<button class="new-strategy-btn" onclick="pauseStrategy(${s.id})">Pause</button>`;
+      } else if (s.status === "PAUSED") {
+        actionBtn = `<button class="new-strategy-btn" onclick="activateStrategy(${s.id})">Resume</button>`;
+      }
+      const viewBtn = `<button class="new-strategy-btn" onclick='viewStrategy(${s.id}, ${JSON.stringify(strat).replace(/'/g, "&apos;")}, "${s.status}")'>View</button>`;
+
+      return `<tr>
+        <td class="mono">#${s.id} ${escapeHtml(strat.symbol || "?")} ${escapeHtml(strat.side || "")}</td>
+        <td style="max-width:280px;">${escapeHtml(logic)}</td>
+        <td>${badge}</td>
+        <td>${actionBtn} ${viewBtn}</td>
+      </tr>`;
+    }).join("");
+
+    container.innerHTML = `<table><thead><tr><th>Strategy</th><th>Logic</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function setStrategyInputEnabled(enabled) {
+    document.getElementById("strategy-input").disabled = !enabled;
+    document.getElementById("strategy-send-btn").disabled = !enabled;
+  }
+
+  async function uploadStrategyFile() {
+    const key = getStoredKey();
+    if (!key) { alert("Log in first."); return; }
+    const fileInput = document.getElementById("strategy-file-input");
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    addChatMessage("user", `📄 Uploaded: ${escapeHtml(file.name)}`);
+    setStrategyInputEnabled(false);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch(`${API_BASE}/strategies/upload`, {
+        method: "POST",
+        headers: { "X-API-Key": key },  // no Content-Type - the browser sets the multipart boundary itself
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        addChatMessage("assistant", "Couldn't read that file: " + escapeHtml(err.detail || res.statusText));
+        setStrategyInputEnabled(true);
+        fileInput.value = "";
+        return;
+      }
+
+      const data = await res.json();
+      currentStrategyId = data.id;
+      currentStrategyStatus = data.status;
+      renderStatusPill(data.status);
+
+      if (data.status === "NEEDS_CLARIFICATION") {
+        const qList = data.questions.map(q => `<li>${escapeHtml(q)}</li>`).join("");
+        addChatMessage("assistant", `I read the document, but need a bit more detail before this is safe to review:<ul>${qList}</ul>`);
+        setStrategyInputEnabled(true);
+      } else if (data.status === "READY_FOR_REVIEW") {
+        addChatMessage("assistant", "Read the document and got everything I need. Here's what I understood - please review it below before approving.");
+        if (data.warnings && data.warnings.length) {
+          const wList = data.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join("");
+          addChatMessage("assistant", `<span style="color:var(--amber);font-weight:700;">⚠ A few things worth double-checking:</span><ul>${wList}</ul>`);
+        }
+      }
+      renderReviewBox(data.strategy, data.status);
+      fileInput.value = "";
+    } catch (e) {
+      addChatMessage("assistant", "Couldn't reach the QuantGuard backend.");
+      setStrategyInputEnabled(true);
+    }
+  }
+
+  async function sendStrategyMessage() {
+    const key = getStoredKey();
+    if (!key) { alert("Log in first."); return; }
+    const input = document.getElementById("strategy-input");
+    const text = input.value.trim();
+    if (!text) return;
+
+    addChatMessage("user", escapeHtml(text));
+    input.value = "";
+    setStrategyInputEnabled(false);
+
+    try {
+      let res;
+      if (currentStrategyId === null) {
+        res = await fetch(`${API_BASE}/strategies`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-API-Key": key },
+          body: JSON.stringify({ description: text }),
+        });
+      } else {
+        res = await fetch(`${API_BASE}/strategies/${currentStrategyId}/clarify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-API-Key": key },
+          body: JSON.stringify({ answer: text }),
+        });
+      }
+
+      if (!res.ok) {
+        const err = await res.json();
+        addChatMessage("assistant", "Error: " + escapeHtml(err.detail || res.statusText));
+        setStrategyInputEnabled(true);
+        return;
+      }
+
+      const data = await res.json();
+      currentStrategyId = data.id;
+      currentStrategyStatus = data.status;
+      renderStatusPill(data.status);
+
+      if (data.status === "NEEDS_CLARIFICATION") {
+        const qList = data.questions.map(q => `<li>${escapeHtml(q)}</li>`).join("");
+        addChatMessage("assistant", `I need a bit more detail before this strategy is safe to review:<ul>${qList}</ul>`);
+        setStrategyInputEnabled(true);
+        document.getElementById("strategy-input").focus();
+      } else if (data.status === "READY_FOR_REVIEW") {
+        addChatMessage("assistant", "Got everything I need. Here's what I understood - please review it below before approving.");
+        if (data.warnings && data.warnings.length) {
+          const wList = data.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join("");
+          addChatMessage("assistant", `<span style="color:var(--amber);font-weight:700;">⚠ A few things worth double-checking:</span><ul>${wList}</ul>`);
+        }
+        setStrategyInputEnabled(false);
+      }
+
+      renderReviewBox(data.strategy, data.status);
+    } catch (e) {
+      addChatMessage("assistant", "Couldn't reach the QuantGuard backend.");
+      setStrategyInputEnabled(true);
+    }
+  }
+
+  async function approveStrategy() {
+    const key = getStoredKey();
+    if (!key || currentStrategyId === null) return;
+    try {
+      const res = await fetch(`${API_BASE}/strategies/${currentStrategyId}/approve`, {
+        method: "POST",
+        headers: { "X-API-Key": key },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Couldn't approve: " + (err.detail || res.statusText));
+        return;
+      }
+      const data = await res.json();
+      currentStrategyStatus = data.status;
+      renderStatusPill(data.status);
+      renderReviewBox(data.strategy, data.status);
+      addChatMessage("assistant", "Strategy approved and saved. Click Activate above (or in the list) whenever you're ready for it to start watching the market live.");
+      loadStrategiesList();
+    } catch (e) {
+      alert("Couldn't reach the QuantGuard backend.");
+    }
+  }
+
+  function resetStrategyChat() {
+    currentStrategyId = null;
+    currentStrategyStatus = null;
+    document.getElementById("chat-log").innerHTML = "";
+    document.getElementById("review-area").innerHTML = "";
+    document.getElementById("strategy-status").innerHTML = "";
+    setStrategyInputEnabled(true);
+    document.getElementById("strategy-input").focus();
+  }
+
+  document.getElementById("strategy-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") sendStrategyMessage();
+  });
+
+  // Kick off everything that needs a valid key, once we're actually logged in.
+  function initDashboardData() {
+    loadStatus();
+    loadOrders();
+    loadStrategiesList();
+    loadPositions();
+    loadChart();
+    setInterval(loadOrders, 3000);
+    setInterval(loadStrategiesList, 5000);
+    setInterval(loadPositions, 5000);
+  }
+
+  // On page load: if already logged in (session in localStorage), skip straight to dashboard.
   if (getSession()) { showDashboard(); }
 </script>
 
