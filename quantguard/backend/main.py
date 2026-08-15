@@ -114,13 +114,25 @@ def _select_broker():
 broker = _select_broker()
 
 
-# Exchange ids ccxt itself supports for real order execution. Anything
-# a trader connects that ISN'T in this set (e.g. "deriv") gets an
-# honest UnsupportedBrokerConnector instead of a silent Binance fallback.
-CCXT_SUPPORTED_BROKER_NAMES = {
-    "binance", "kraken", "bybit", "okx", "coinbase", "coinbaseadvanced",
-    "kucoin", "bitfinex", "bitstamp", "gemini", "huobi",
-}
+def _is_ccxt_exchange(broker_name: str) -> bool:
+    """
+    Checks against ccxt's OWN full exchange list (100+: Binance, Kraken,
+    Bybit, OKX, Coinbase, KuCoin, Bitget, MEXC, Gate.io, and dozens more)
+    instead of a hand-maintained allowlist - so every exchange ccxt adds
+    support for automatically works here too, with zero new code.
+    """
+    try:
+        import ccxt
+    except ImportError:
+        return False
+    return broker_name in ccxt.exchanges
+
+
+# Non-ccxt brokers with a REAL connector built (see connector.py for why
+# each one is a separate, bespoke integration - these aren't a REST API
+# ccxt already speaks). Anything not in ccxt's list AND not here (e.g.
+# "deriv") gets an honest UnsupportedBrokerConnector instead of guessing.
+OTHER_SUPPORTED_BROKER_NAMES = {"oanda"}
 
 
 def _build_broker_for_account(account_id: str):
@@ -129,7 +141,7 @@ def _build_broker_for_account(account_id: str):
     has connected its OWN broker credentials (via /broker/connect),
     route their orders there instead of the single shared broker.
     Falls back to the shared `broker` if they haven't connected one,
-    or if their connected broker isn't ccxt-supported (still gets a
+    or if their connected broker isn't yet supported (still gets a
     real, honest connector - UnsupportedBrokerConnector - not a
     silent redirect to Binance).
     """
@@ -138,7 +150,22 @@ def _build_broker_for_account(account_id: str):
         return broker
 
     broker_name = connection["broker_name"].lower().strip()
-    if broker_name not in CCXT_SUPPORTED_BROKER_NAMES:
+
+    if broker_name == "oanda":
+        # OANDA has no separate "secret" - api_secret carries the
+        # account ID instead (see OandaConnector's own docstring).
+        from broker import OandaConnector
+        try:
+            return OandaConnector(
+                api_token=connection["api_key"],
+                account_id=connection["api_secret"],
+                testnet=connection["testnet"],
+            )
+        except ImportError as e:
+            print(f"[QuantGuard] Couldn't build OANDA connector for account {account_id}: {e}")
+            return UnsupportedBrokerConnector(connection["broker_name"])
+
+    if not _is_ccxt_exchange(broker_name):
         return UnsupportedBrokerConnector(connection["broker_name"])
 
     try:
@@ -384,7 +411,8 @@ def broker_status(authorization: str | None = Header(default=None)):
     connection = db.get_broker_connection(account_id)
     if not connection:
         return {"connected": False, "broker_name": None, "executable": False}
-    executable = connection["broker_name"].lower().strip() in CCXT_SUPPORTED_BROKER_NAMES
+    name = connection["broker_name"].lower().strip()
+    executable = name in OTHER_SUPPORTED_BROKER_NAMES or _is_ccxt_exchange(name)
     return {"connected": True, "broker_name": connection["broker_name"], "executable": executable}
 
 
