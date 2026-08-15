@@ -38,6 +38,30 @@ class Indicator(str, Enum):
     LOW = "LOW"                                 # lowest price over a lookback period
     PERCENT_CHANGE_FROM_HIGH = "PERCENT_CHANGE_FROM_HIGH"  # e.g. "3% drop from the 20-day high"
 
+    # --- SMC / ICT (structural price action) ---
+    # These return numbers so they fit the same Condition/ConditionGroup
+    # comparison machinery as everything else - boolean-ish signals
+    # (BOS, FVG) return 1.0/0.0, so a condition reads e.g. BOS_BULLISH == 1.
+    SWING_HIGH = "SWING_HIGH"                    # most recent confirmed swing-high price
+    SWING_LOW = "SWING_LOW"                       # most recent confirmed swing-low price
+    BOS_BULLISH = "BOS_BULLISH"                    # 1.0 if price just broke above the last swing high, else 0.0
+    BOS_BEARISH = "BOS_BEARISH"                     # 1.0 if price just broke below the last swing low, else 0.0
+    MARKET_STRUCTURE = "MARKET_STRUCTURE"            # 1 = bullish (HH/HL), -1 = bearish (LH/LL), 0 = unclear
+    FVG_BULLISH = "FVG_BULLISH"                       # 1.0 if an unfilled bullish fair value gap exists in the lookback
+    FVG_BEARISH = "FVG_BEARISH"                        # 1.0 if an unfilled bearish fair value gap exists in the lookback
+
+    # --- Quant / statistical ---
+    BOLLINGER_UPPER = "BOLLINGER_UPPER"          # SMA(period) + 2 std-dev
+    BOLLINGER_MID = "BOLLINGER_MID"               # SMA(period)
+    BOLLINGER_LOWER = "BOLLINGER_LOWER"            # SMA(period) - 2 std-dev
+    ATR = "ATR"                                     # average true range (volatility) over period
+    MACD_LINE = "MACD_LINE"                          # EMA(12) - EMA(26), standard params (period field unused)
+    MACD_SIGNAL = "MACD_SIGNAL"                       # EMA(9) of the MACD line
+    MACD_HIST = "MACD_HIST"                            # MACD_LINE - MACD_SIGNAL
+    STDDEV = "STDDEV"                                   # standard deviation of closes over period
+    ZSCORE = "ZSCORE"                                    # (price - SMA(period)) / STDDEV(period)
+    VWAP = "VWAP"                                         # volume-weighted average price, rolling over period
+
 
 class Operator(str, Enum):
     LT = "<"
