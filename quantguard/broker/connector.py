@@ -68,51 +68,59 @@ class MockConnector(BrokerConnector):
         )
 
 
-class BinanceConnector(BrokerConnector):
+class CcxtConnector(BrokerConnector):
     """
-    Real Binance connector using ccxt.
+    Real connector for ANY exchange ccxt supports (Binance, Kraken,
+    Bybit, OKX, etc) - not just Binance. This is what makes per-account
+    'connect your own broker' actually work for more than one exchange,
+    and is also the fix for Binance-specific problems (like a region
+    block) - a trader can connect Kraken or Bybit instead, using this
+    exact same class, with zero new code needed per exchange.
 
-    Requires: pip install ccxt
-    Requires: a Binance (or Binance testnet) API key + secret.
-
-    This is written to run against Binance's TESTNET by default -
-    never live funds - until you explicitly flip testnet=False
-    with a real, funded account.
+    exchange_id is ccxt's own identifier for the exchange, e.g.
+    "binance", "kraken", "bybit", "okx" - see ccxt.exchanges for the
+    full supported list. Not every exchange supports set_sandbox_mode
+    (testnet) the same way; ones that don't will raise clearly rather
+    than silently trading on mainnet.
     """
 
-    name = "Binance"
-
-    def __init__(self, api_key: str, api_secret: str, testnet: bool = True):
+    def __init__(self, exchange_id: str, api_key: str, api_secret: str, testnet: bool = True):
         import ccxt  # imported here so the rest of the app works without ccxt installed
 
-        self.exchange = ccxt.binance({
+        exchange_id = exchange_id.lower().strip()
+        if not hasattr(ccxt, exchange_id):
+            raise ValueError(
+                f"'{exchange_id}' isn't a ccxt-supported exchange. "
+                f"See https://docs.ccxt.com/#/README?id=exchanges for the full list "
+                f"(e.g. binance, kraken, bybit, okx)."
+            )
+        exchange_class = getattr(ccxt, exchange_id)
+        self.name = exchange_id.capitalize()
+        self.exchange = exchange_class({
             "apiKey": api_key,
             "secret": api_secret,
             "enableRateLimit": True,
             "options": {
-                # Auto-corrects for small system-clock drift by asking
-                # Binance for its server time and adjusting requests
-                # accordingly - without this, even a ~1 second clock
-                # difference causes Binance to reject every order with
-                # a "Timestamp ... ahead of the server's time" error
-                # (code -1021). Syncing the OS clock is still worth
-                # doing, but this makes the connector resilient even
-                # when the clock drifts again later.
+                # See BinanceConnector's original comment - the same
+                # clock-drift protection applies to any exchange.
                 "adjustForTimeDifference": True,
             },
         })
         if testnet:
-            self.exchange.set_sandbox_mode(True)
+            try:
+                self.exchange.set_sandbox_mode(True)
+            except Exception as e:
+                raise ValueError(
+                    f"{self.name} doesn't support ccxt's sandbox mode the way this connector "
+                    f"expects ({e}). Don't trade real funds on it without verifying testnet "
+                    f"support manually first."
+                )
 
     def send_order(self, order: Order) -> ExecutionResult:
         try:
-            # Market order, not limit: fills immediately at whatever the
-            # current live price is, instead of sitting open/unfilled on
-            # the order book waiting for the market to reach an exact
-            # limit price. This is what makes "order sent" actually mean
-            # "order filled" for testing purposes. (A limit order is more
-            # realistic for production trading, but market orders are
-            # what let you SEE the pipeline actually complete right now.)
+            # Market order, not limit - see BinanceConnector's original
+            # comment for why: this is what makes "order sent" actually
+            # mean "order filled" for testing purposes.
             result = self.exchange.create_order(
                 symbol=self._to_ccxt_symbol(order.symbol),
                 type="market",
@@ -120,20 +128,16 @@ class BinanceConnector(BrokerConnector):
                 amount=order.quantity,
             )
 
-            # Binance's own status tells us what really happened - don't
-            # assume FILLED just because the API call didn't raise an
-            # exception. A market order should fill immediately, but this
-            # keeps the reported status honest either way.
             raw_status = (result.get("status") or "").lower()
             if raw_status in ("closed", "filled"):
                 status = "FILLED"
-                message = "Order filled on Binance"
+                message = f"Order filled on {self.name}"
             elif raw_status in ("open", "new", "partially_filled"):
                 status = "OPEN"
-                message = f"Order placed on Binance but not yet fully filled (status: {raw_status})"
+                message = f"Order placed on {self.name} but not yet fully filled (status: {raw_status})"
             else:
                 status = "UNKNOWN"
-                message = f"Order placed on Binance - status unclear: {raw_status or 'not returned'}"
+                message = f"Order placed on {self.name} - status unclear: {raw_status or 'not returned'}"
 
             filled_price = result.get("average") or result.get("price") or order.price
 
@@ -161,3 +165,46 @@ class BinanceConnector(BrokerConnector):
             if symbol.endswith(quote) and len(symbol) > len(quote):
                 return f"{symbol[:-len(quote)]}/{quote}"
         return symbol
+
+
+class BinanceConnector(CcxtConnector):
+    """Kept as a thin, explicitly-named subclass for backward
+    compatibility with existing code/tests that reference
+    BinanceConnector directly - identical behavior to
+    CcxtConnector('binance', ...)."""
+
+    name = "Binance"
+
+    def __init__(self, api_key: str, api_secret: str, testnet: bool = True):
+        super().__init__("binance", api_key, api_secret, testnet)
+        self.name = "Binance"
+
+
+class UnsupportedBrokerConnector(BrokerConnector):
+    """
+    For a broker a trader has connected credentials for, but that
+    QuantGuard doesn't have a real connector for yet (e.g. Deriv, which
+    uses its own WebSocket API, not ccxt/REST - a genuinely different
+    integration, not a one-line addition).
+
+    Deliberately fails LOUD and HONEST on every order - never silently
+    routes to a different broker or pretends to fill. A trader who
+    connected Deriv should see a clear 'not supported yet' error, not
+    a fake fill or a mysterious Binance order.
+    """
+
+    def __init__(self, broker_name: str):
+        self.name = broker_name
+
+    def send_order(self, order: Order) -> ExecutionResult:
+        return ExecutionResult(
+            order_id="",
+            status="ERROR",
+            broker=self.name,
+            message=(
+                f"{self.name} isn't wired up for real order execution yet - "
+                f"only ccxt-supported exchanges (Binance, Kraken, Bybit, OKX, etc) "
+                f"work for live orders right now. Your credentials are saved, but "
+                f"no order was sent anywhere."
+            ),
+        )
