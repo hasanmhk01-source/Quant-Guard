@@ -32,7 +32,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from risk_engine import Order, Side, RiskEngine, MaxOrderSizeRule, RateLimitRule, PositionLimitRule, KillSwitchRule
-from broker import MockConnector, BinanceConnector, ExecutionResult
+from broker import MockConnector, BinanceConnector, CcxtConnector, UnsupportedBrokerConnector, ExecutionResult
 from backend.database import db
 from strategy.parser import MockStrategyParser, ClaudeStrategyParser, GeminiStrategyParser, GrokStrategyParser
 from strategy.models import StrategyConfig, StrategyStatus
@@ -73,33 +73,84 @@ risk_engine = RiskEngine(rules=[
 
 def _select_broker():
     """
-    Uses Binance testnet if API keys are set as environment variables,
-    otherwise falls back to the mock exchange. This means the app
-    never breaks just because keys aren't set up yet - it just quietly
-    stays in paper-trading mode until you add them.
+    Uses a real ccxt exchange (Binance testnet by default) if API keys
+    are set as environment variables, otherwise falls back to the mock
+    exchange. This means the app never breaks just because keys aren't
+    set up yet - it just quietly stays in paper-trading mode until you
+    add them. This is the SHARED fallback broker, used only for
+    accounts that haven't connected their own via /broker/connect -
+    see _build_broker_for_account below for the per-account path.
 
     To go live against Binance testnet, set these before starting the
     server (PowerShell):
         $env:BINANCE_API_KEY = "your testnet key"
         $env:BINANCE_API_SECRET = "your testnet secret"
     Get free testnet keys at https://testnet.binance.vision
+
+    If Binance is blocked from your hosting region (HTTP 451), set
+    BROKER_EXCHANGE to a different ccxt exchange id instead (e.g.
+    "kraken", "bybit", "okx") - same BINANCE_API_KEY/SECRET env vars
+    are reused as that exchange's key/secret, just naming stayed as-is
+    for backward compatibility.
     """
     api_key = os.environ.get("BINANCE_API_KEY")
     api_secret = os.environ.get("BINANCE_API_SECRET")
+    exchange_id = os.environ.get("BROKER_EXCHANGE", "binance")
     if api_key and api_secret:
         try:
-            connector = BinanceConnector(api_key=api_key, api_secret=api_secret, testnet=True)
-            print("[QuantGuard] Using BinanceConnector (testnet) - real exchange, fake funds.")
+            connector = CcxtConnector(exchange_id, api_key=api_key, api_secret=api_secret, testnet=True)
+            print(f"[QuantGuard] Using CcxtConnector({exchange_id!r}) (testnet) - real exchange, fake funds.")
             return connector
         except ImportError:
-            print("[QuantGuard] BINANCE_API_KEY set but ccxt isn't installed. "
+            print("[QuantGuard] API keys set but ccxt isn't installed. "
                   "Run: pip install ccxt  -  falling back to MockConnector for now.")
+        except ValueError as e:
+            print(f"[QuantGuard] Couldn't set up '{exchange_id}': {e} Falling back to MockConnector.")
     else:
-        print("[QuantGuard] No Binance API keys set - using MockConnector (simulated fills).")
+        print("[QuantGuard] No broker API keys set - using MockConnector (simulated fills).")
     return MockConnector()
 
 
 broker = _select_broker()
+
+
+# Exchange ids ccxt itself supports for real order execution. Anything
+# a trader connects that ISN'T in this set (e.g. "deriv") gets an
+# honest UnsupportedBrokerConnector instead of a silent Binance fallback.
+CCXT_SUPPORTED_BROKER_NAMES = {
+    "binance", "kraken", "bybit", "okx", "coinbase", "coinbaseadvanced",
+    "kucoin", "bitfinex", "bitstamp", "gemini", "huobi",
+}
+
+
+def _build_broker_for_account(account_id: str):
+    """
+    The per-account counterpart to _select_broker(): if this account
+    has connected its OWN broker credentials (via /broker/connect),
+    route their orders there instead of the single shared broker.
+    Falls back to the shared `broker` if they haven't connected one,
+    or if their connected broker isn't ccxt-supported (still gets a
+    real, honest connector - UnsupportedBrokerConnector - not a
+    silent redirect to Binance).
+    """
+    connection = db.get_broker_connection(account_id)
+    if not connection:
+        return broker
+
+    broker_name = connection["broker_name"].lower().strip()
+    if broker_name not in CCXT_SUPPORTED_BROKER_NAMES:
+        return UnsupportedBrokerConnector(connection["broker_name"])
+
+    try:
+        return CcxtConnector(
+            broker_name,
+            api_key=connection["api_key"],
+            api_secret=connection["api_secret"],
+            testnet=connection["testnet"],
+        )
+    except (ImportError, ValueError) as e:
+        print(f"[QuantGuard] Couldn't build '{broker_name}' connector for account {account_id}: {e}")
+        return UnsupportedBrokerConnector(connection["broker_name"])
 
 
 def _select_strategy_parser():
@@ -324,15 +375,17 @@ def my_api_key(authorization: str | None = Header(default=None)):
 @app.get("/broker/status")
 def broker_status(authorization: str | None = Header(default=None)):
     """
-    Whether THIS account has connected its own broker credentials yet.
-    Note: connecting here stores the credentials (see /broker/connect)
-    but orders still execute through the single shared broker
-    configured via environment variables until that wiring is added
-    to the order pipeline - see the accompanying explanation.
+    Whether THIS account has connected its own broker credentials, AND
+    whether that broker is one QuantGuard can actually execute orders
+    through. A trader who connected an unsupported broker (e.g. Deriv)
+    should see that clearly here, not just find out when an order fails.
     """
     account_id = require_session(authorization)
     connection = db.get_broker_connection(account_id)
-    return {"connected": connection is not None, "broker_name": connection["broker_name"] if connection else None}
+    if not connection:
+        return {"connected": False, "broker_name": None, "executable": False}
+    executable = connection["broker_name"].lower().strip() in CCXT_SUPPORTED_BROKER_NAMES
+    return {"connected": True, "broker_name": connection["broker_name"], "executable": executable}
 
 
 @app.post("/broker/connect")
@@ -550,7 +603,8 @@ def _process_order(account_id: str, symbol: str, side: str, quantity: float, pri
 
     execution: ExecutionResult | None = None
     if approved:
-        execution = broker.send_order(order)
+        account_broker = _build_broker_for_account(account_id)
+        execution = account_broker.send_order(order)
         if execution.status == "FILLED":
             db.update_position(order.account_id, order.symbol, order.side.value, order.quantity, order.price)
 
