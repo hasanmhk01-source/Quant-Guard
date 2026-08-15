@@ -411,7 +411,17 @@
       <h2>Submit Order</h2>
 
       <label>Symbol</label>
-      <input id="symbol" class="mono" value="BTCUSDT" />
+      <input id="symbol" class="mono" value="BTCUSDT" list="symbol-options" />
+      <datalist id="symbol-options">
+        <option value="BTCUSDT">
+        <option value="ETHUSDT">
+        <option value="SOLUSDT">
+        <option value="EURUSD">
+        <option value="GBPUSD">
+        <option value="USDJPY">
+        <option value="XAUUSD">
+        <option value="XAGUSD">
+      </datalist>
 
       <label>Side</label>
       <div class="side-toggle">
@@ -423,7 +433,11 @@
       <input id="quantity" class="mono" type="number" step="any" value="0.5" oninput="updateNotional()" />
 
       <label>Price (USD)</label>
-      <input id="price" class="mono" type="number" step="any" value="65000" oninput="updateNotional()" />
+      <div style="display:flex; gap:8px;">
+        <input id="price" class="mono" type="number" step="any" value="65000" oninput="updateNotional()" style="flex:1;" />
+        <button type="button" onclick="useLivePrice()" style="padding:0 14px; border-radius:5px; border:1px solid var(--border); background:#0D1115; color:var(--text); font-size:12px; cursor:pointer; white-space:nowrap;">Use live price</button>
+      </div>
+      <div id="price-hint" class="config-note" style="margin-top:6px; margin-bottom:0;"></div>
 
       <div class="notional">Order notional: <span id="notional-value" class="mono">$32,500.00</span></div>
 
@@ -447,7 +461,7 @@
     <div class="panel">
       <h2>Price Chart</h2>
       <div style="display:flex; gap:8px; margin-bottom:14px; align-items:center;">
-        <input id="chart-symbol" class="mono" value="BTCUSDT" style="max-width:140px;" placeholder="symbol" />
+        <input id="chart-symbol" class="mono" value="BTCUSDT" style="max-width:140px;" placeholder="symbol" list="symbol-options" />
         <select id="chart-timeframe" style="padding:9px 10px; background:#0D1115; border:1px solid var(--border); border-radius:5px; color:var(--text); font-size:13px;">
           <option value="1m">1m</option>
           <option value="5m">5m</option>
@@ -665,6 +679,37 @@
       document.getElementById("broker-status-name").textContent = "backend not running";
     }
   }
+
+  async function useLivePrice() {
+    const symbol = document.getElementById("symbol").value.trim().toUpperCase();
+    const key = getStoredKey();
+    const hint = document.getElementById("price-hint");
+    if (!symbol) return;
+    if (!key) { hint.textContent = "Log in first to fetch a live price."; return; }
+    hint.textContent = "Fetching live price...";
+    try {
+      const res = await fetch(`${API_BASE}/market/${symbol}/candles?timeframe=1m&limit=1`, {
+        headers: { "X-API-Key": key },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        hint.textContent = "Couldn't fetch live price: " + (err.detail || res.statusText || "unknown error");
+        return;
+      }
+      const data = await res.json();
+      const last = data.candles && data.candles[data.candles.length - 1];
+      if (!last) { hint.textContent = "No price data returned for " + symbol; return; }
+      document.getElementById("price").value = last.close;
+      updateNotional();
+      hint.textContent = `Live price as of now: $${last.close}`;
+    } catch (e) {
+      hint.textContent = "Couldn't reach the QuantGuard backend.";
+    }
+  }
+
+  // Auto-fetch a fresh live price whenever the symbol changes, so the
+  // price field doesn't sit stale on whatever was typed/left there before.
+  document.getElementById("symbol").addEventListener("change", useLivePrice);
 
   async function submitOrder() {
     const key = getStoredKey();
