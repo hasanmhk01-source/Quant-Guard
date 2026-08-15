@@ -180,6 +180,91 @@ class BinanceConnector(CcxtConnector):
         self.name = "Binance"
 
 
+class OandaConnector(BrokerConnector):
+    """
+    Real OANDA connector - a forex/CFD broker with a genuine plain
+    REST API. This is why OANDA, not Deriv, is the second real broker
+    added here: Deriv requires holding open a persistent WebSocket
+    connection and speaking its own message protocol to place orders,
+    which is a fundamentally heavier integration than a request/response
+    REST call. Brokers like OANDA, IG, and most MT5-bridge-style
+    brokers fit this same simple REST pattern; Deriv-style
+    WebSocket-only brokers each need their own dedicated connector as
+    separate follow-up work.
+
+    OANDA's auth is a single bearer token plus an account ID - it has
+    no separate "secret" the way an exchange API key does. Since the
+    broker_connections table only has two credential fields (api_key,
+    api_secret), this connector reuses api_secret to carry the account
+    ID rather than adding a third field to the schema. The dashboard's
+    Broker Connection form should tell OANDA traders to put their
+    Account ID in the "API Secret" box.
+
+    "testnet" maps to OANDA's own "practice" vs "live" environments -
+    different naming, same concept (fake funds vs real funds).
+
+    NOT verified against a real OANDA account in this environment (no
+    network access here to test it) - same honest caveat as every
+    other real-broker connector in this project. Test on a practice
+    account before ever pointing this at a live one.
+    """
+
+    def __init__(self, api_token: str, account_id: str, testnet: bool = True):
+        import requests  # imported here so the app works without requests installed if OANDA isn't used
+        self._requests = requests
+        self.name = "OANDA"
+        self.api_token = api_token
+        self.account_id = account_id
+        self.base_url = "https://api-fxpractice.oanda.com" if testnet else "https://api-fxtrade.oanda.com"
+
+    def send_order(self, order: Order) -> ExecutionResult:
+        instrument = self._to_oanda_instrument(order.symbol)
+        # OANDA has no separate buy/sell field - a positive unit count
+        # IS a buy, a negative unit count IS a sell.
+        units = order.quantity if order.side.value == "BUY" else -order.quantity
+        try:
+            response = self._requests.post(
+                f"{self.base_url}/v3/accounts/{self.account_id}/orders",
+                headers={"Authorization": f"Bearer {self.api_token}", "Content-Type": "application/json"},
+                json={"order": {"units": str(units), "instrument": instrument,
+                                 "type": "MARKET", "positionFill": "DEFAULT"}},
+                timeout=10,
+            )
+            data = response.json()
+            if not response.ok:
+                return ExecutionResult(
+                    order_id="", status="ERROR", broker=self.name,
+                    message=str(data.get("errorMessage", data)),
+                )
+            fill = data.get("orderFillTransaction")
+            if fill:
+                return ExecutionResult(
+                    order_id=str(fill.get("id", "")),
+                    status="FILLED",
+                    broker=self.name,
+                    filled_price=float(fill.get("price", order.price)),
+                    message="Order filled on OANDA",
+                )
+            # Order accepted but no immediate fill transaction (e.g.
+            # pending/queued) - report honestly rather than guess FILLED.
+            return ExecutionResult(
+                order_id=str(data.get("orderCreateTransaction", {}).get("id", "")),
+                status="UNKNOWN",
+                broker=self.name,
+                message=f"Order placed on OANDA - fill status unclear: {data}",
+            )
+        except Exception as e:
+            return ExecutionResult(order_id="", status="ERROR", broker=self.name, message=str(e))
+
+    @staticmethod
+    def _to_oanda_instrument(symbol: str) -> str:
+        # "EURUSD" -> "EUR_USD", which is what OANDA expects
+        symbol = symbol.upper().replace("/", "")
+        if len(symbol) == 6:
+            return f"{symbol[:3]}_{symbol[3:]}"
+        return symbol
+
+
 class UnsupportedBrokerConnector(BrokerConnector):
     """
     For a broker a trader has connected credentials for, but that
