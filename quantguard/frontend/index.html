@@ -393,11 +393,21 @@
       <div id="broker-status"></div>
       <div id="broker-form" style="margin-top:14px;">
         <label>Broker</label>
-        <input id="broker-name-input" class="mono" value="binance" />
+        <input id="broker-name-input" class="mono" value="binance" list="broker-options" oninput="updateBrokerHint()" />
+        <datalist id="broker-options">
+          <option value="binance">
+          <option value="kraken">
+          <option value="bybit">
+          <option value="okx">
+          <option value="coinbase">
+          <option value="kucoin">
+          <option value="oanda">
+        </datalist>
         <label>API Key</label>
         <input id="broker-api-key" class="mono" placeholder="your Binance API key" />
-        <label>API Secret</label>
+        <label id="broker-secret-label">API Secret</label>
         <input id="broker-api-secret" type="password" placeholder="your Binance API secret" />
+        <div id="broker-hint" class="config-note" style="margin-top:6px;"></div>
         <label style="display:flex; align-items:center; gap:8px; margin-top:14px;">
           <input type="checkbox" id="broker-testnet" checked style="width:auto;" /> Use testnet (recommended)
         </label>
@@ -627,6 +637,22 @@
         ? '<span class="status-pill connected">Connected</span>'
         : '<span class="status-pill disconnected">Not connected</span>';
     } catch (e) { /* backend not reachable */ }
+  }
+
+  function updateBrokerHint() {
+    const name = document.getElementById("broker-name-input").value.trim().toLowerCase();
+    const secretLabel = document.getElementById("broker-secret-label");
+    const secretInput = document.getElementById("broker-api-secret");
+    const hint = document.getElementById("broker-hint");
+    if (name === "oanda") {
+      secretLabel.textContent = "Account ID";
+      secretInput.placeholder = "your OANDA account ID (e.g. 101-004-12345678-001)";
+      hint.textContent = "OANDA uses a single API token (not a key+secret pair) - put your token above and your Account ID in this field.";
+    } else {
+      secretLabel.textContent = "API Secret";
+      secretInput.placeholder = `your ${name || "exchange"} API secret`;
+      hint.textContent = "";
+    }
   }
 
   async function connectBroker() {
