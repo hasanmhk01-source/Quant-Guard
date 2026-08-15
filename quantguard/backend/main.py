@@ -192,7 +192,7 @@ class NewAccountResponse(BaseModel):
 # no StaticFiles mount needed. Falls back to the JSON status if the
 # file isn't found (e.g. a bare API-only deployment), so this never
 # hard-crashes the app over a missing frontend folder.
-FRONTEND_DIR = pathlib.Path(__file__).resolve().parent / "frontend"
+FRONTEND_DIR = pathlib.Path(__file__).resolve().parent.parent / "frontend"
 
 
 # --- Endpoints ------------------------------------------------------------
