@@ -14,5 +14,6 @@ openai                 # for XAI_API_KEY (Grok - xAI's API is OpenAI-compatible)
 # Document upload (optional - only needed for the file types you'll actually use)
 pypdf                  # for uploading .pdf strategy descriptions
 python-docx             # for uploading .docx strategy descriptions
-cryptography
-requests
+
+# Forex/metals price data (EURUSD, XAUUSD, etc via Twelve Data)
+requests               # for TWELVE_DATA_API_KEY support
