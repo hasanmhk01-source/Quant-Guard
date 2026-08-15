@@ -159,6 +159,23 @@ def require_account(x_api_key: str | None) -> str:
     return account_id
 
 
+def require_session(authorization: str | None) -> str:
+    """
+    The dashboard's login/signup layer uses a separate 'Authorization:
+    Bearer <session_token>' header, not X-API-Key - this is for
+    account-level actions (viewing your own API key, connecting a
+    broker), distinct from the API key which is used for actual
+    order/strategy requests. Raises 401 if missing/invalid/expired.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or malformed Authorization header")
+    session_token = authorization[len("Bearer "):]
+    account_id = db.get_account_for_session(session_token)
+    if not account_id:
+        raise HTTPException(status_code=401, detail="Session expired or invalid - please log in again")
+    return account_id
+
+
 # --- Request/response shapes --------------------------------------------
 class OrderRequest(BaseModel):
     symbol: str
@@ -184,6 +201,28 @@ class NewAccountResponse(BaseModel):
     account_id: str
     api_key: str
     warning: str = "Save this key now - it will not be shown again."
+
+
+class SignupRequest(BaseModel):
+    account_id: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    account_id: str
+    password: str
+
+
+class SessionResponse(BaseModel):
+    session_token: str
+    account_id: str
+
+
+class BrokerConnectRequest(BaseModel):
+    broker_name: str
+    api_key: str
+    api_secret: str
+    testnet: bool = True
 
 
 # --- Frontend serving -------------------------------------------------
@@ -215,16 +254,98 @@ def api_status():
 @app.post("/accounts", response_model=NewAccountResponse)
 def create_account(req: NewAccountRequest):
     """
-    Creates a new trading account and issues its API key. Call this
-    ONCE per trader. The returned key is shown only this one time -
-    store it somewhere safe (a .env file, a secrets manager) and use
-    it as the X-API-Key header on every /orders request from then on.
+    Creates a new trading account and issues its API key, with NO
+    password - the bare-bones API-only path (e.g. for an MT5 EA or a
+    script that never touches the web dashboard). The returned key is
+    shown only this one time. For the dashboard's own login/signup
+    screen, use /signup instead - that path sets a password too.
     """
     try:
         api_key = db.create_api_key(req.account_id)
     except Exception:
         raise HTTPException(status_code=400, detail="That account_id already has a key")
     return NewAccountResponse(account_id=req.account_id, api_key=api_key)
+
+
+@app.post("/signup", response_model=SessionResponse)
+def signup(req: SignupRequest):
+    """
+    What the dashboard's 'Create account' button calls. Creates the
+    account AND its API key in one step (same key an EA/script would
+    use), sets a password, and immediately logs the trader in by
+    returning a session token - so signup flows straight into the
+    dashboard with no separate login step.
+    """
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    try:
+        db.create_account_with_password(req.account_id, req.password)
+    except Exception:
+        raise HTTPException(status_code=400, detail="That account name is already taken")
+    session_token = db.create_session(req.account_id)
+    return SessionResponse(session_token=session_token, account_id=req.account_id)
+
+
+@app.post("/login", response_model=SessionResponse)
+def login(req: LoginRequest):
+    """What the dashboard's 'Log in' button calls."""
+    if not db.verify_login(req.account_id, req.password):
+        # Same message for "no such account" and "wrong password" -
+        # don't let a login form reveal which account names exist.
+        raise HTTPException(status_code=401, detail="Incorrect account name or password")
+    session_token = db.create_session(req.account_id)
+    return SessionResponse(session_token=session_token, account_id=req.account_id)
+
+
+@app.post("/logout")
+def logout(authorization: str | None = Header(default=None)):
+    """Invalidates the current session. Safe to call even with an
+    already-invalid token - logging out never fails from the trader's
+    point of view."""
+    if authorization and authorization.startswith("Bearer "):
+        db.delete_session(authorization[len("Bearer "):])
+    return {"status": "logged_out"}
+
+
+@app.get("/my-api-key")
+def my_api_key(authorization: str | None = Header(default=None)):
+    """
+    Returns the logged-in account's API key, so the dashboard can
+    display it and use it for order/chart/strategy requests without
+    the trader having to copy-paste it in manually after signup.
+    """
+    account_id = require_session(authorization)
+    api_key = db.get_api_key_for_account(account_id)
+    if not api_key:
+        raise HTTPException(status_code=404, detail="No API key found for this account")
+    return {"api_key": api_key}
+
+
+@app.get("/broker/status")
+def broker_status(authorization: str | None = Header(default=None)):
+    """
+    Whether THIS account has connected its own broker credentials yet.
+    Note: connecting here stores the credentials (see /broker/connect)
+    but orders still execute through the single shared broker
+    configured via environment variables until that wiring is added
+    to the order pipeline - see the accompanying explanation.
+    """
+    account_id = require_session(authorization)
+    connection = db.get_broker_connection(account_id)
+    return {"connected": connection is not None, "broker_name": connection["broker_name"] if connection else None}
+
+
+@app.post("/broker/connect")
+def broker_connect(req: BrokerConnectRequest, authorization: str | None = Header(default=None)):
+    """
+    Stores this account's own broker API key/secret. See the note on
+    /broker/status: this saves the credentials, but the order
+    execution pipeline needs a follow-up change to actually use them
+    per-account instead of the single env-var-configured broker.
+    """
+    account_id = require_session(authorization)
+    db.save_broker_connection(account_id, req.broker_name, req.api_key, req.api_secret, req.testnet)
+    return {"status": "connected", "broker_name": req.broker_name}
 
 
 @app.post("/orders", response_model=OrderResponse)
