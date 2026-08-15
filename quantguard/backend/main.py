@@ -22,11 +22,13 @@ or use the frontend dashboard (frontend/index.html).
 
 import os
 import asyncio
+import pathlib
 from datetime import datetime, timezone
 from typing import List
 
 from fastapi import FastAPI, Header, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from risk_engine import Order, Side, RiskEngine, MaxOrderSizeRule, RateLimitRule, PositionLimitRule, KillSwitchRule
@@ -184,9 +186,29 @@ class NewAccountResponse(BaseModel):
     warning: str = "Save this key now - it will not be shown again."
 
 
+# --- Frontend serving -------------------------------------------------
+# The dashboard (frontend/index.html) is a single self-contained HTML
+# file - no separate CSS/JS assets - so a plain FileResponse is enough,
+# no StaticFiles mount needed. Falls back to the JSON status if the
+# file isn't found (e.g. a bare API-only deployment), so this never
+# hard-crashes the app over a missing frontend folder.
+FRONTEND_DIR = pathlib.Path(__file__).resolve().parent / "frontend"
+
+
 # --- Endpoints ------------------------------------------------------------
 @app.get("/")
 def root():
+    index_file = FRONTEND_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    return {"service": "QuantGuard", "status": "running", "broker": broker.name}
+
+
+@app.get("/api/status")
+def api_status():
+    """Machine-readable health check - what '/' returned before it
+    started serving the dashboard. Kept at a separate path so uptime
+    monitors or scripts hitting '/' for JSON don't silently break."""
     return {"service": "QuantGuard", "status": "running", "broker": broker.name}
 
 
