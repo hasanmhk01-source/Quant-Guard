@@ -322,11 +322,25 @@ def root():
 
 
 @app.get("/api/status")
-def api_status():
-    """Machine-readable health check - what '/' returned before it
-    started serving the dashboard. Kept at a separate path so uptime
-    monitors or scripts hitting '/' for JSON don't silently break."""
-    return {"service": "QuantGuard", "status": "running", "broker": broker.name}
+def api_status(x_api_key: str | None = Header(default=None)):
+    """
+    Machine-readable health check. If called WITH a valid X-API-Key,
+    reports the CALLING ACCOUNT's own connected broker (if they've
+    connected one via /broker/connect) instead of the shared fallback -
+    this is what the dashboard header uses, so a trader who connected
+    their own broker sees THEIR broker there, not the platform-wide
+    default. Called with no key (or an invalid one), or by an account
+    that hasn't connected its own broker, it just reports the shared
+    fallback broker, same as before.
+    """
+    broker_name = broker.name
+    if x_api_key:
+        account_id = db.get_account_for_key(x_api_key)
+        if account_id:
+            connection = db.get_broker_connection(account_id)
+            if connection:
+                broker_name = connection["broker_name"]
+    return {"service": "QuantGuard", "status": "running", "broker": broker_name}
 
 
 @app.post("/accounts", response_model=NewAccountResponse)
@@ -747,7 +761,11 @@ def submit_strategy(req: StrategyDescriptionRequest, x_api_key: str | None = Hea
     """
     account_id = require_account(x_api_key)
 
-    result = strategy_parser.parse(req.description)
+    try:
+        result = strategy_parser.parse(req.description)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Strategy parser failed: {e}")
+
     strategy_id = db.save_strategy(
         account_id=account_id,
         conversation=[req.description],
@@ -782,11 +800,26 @@ async def upload_strategy(file: UploadFile = File(...), x_api_key: str | None = 
         raise HTTPException(status_code=400, detail=str(e))
     except ImportError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # pypdf/python-docx can raise their OWN exception types for a
+        # malformed, encrypted, or corrupted file (not just ImportError) -
+        # without this, that escapes as an unhandled crash and the
+        # response body isn't guaranteed to be valid JSON, which makes
+        # the frontend's error handling itself fail and misreport this
+        # as "can't reach the backend" instead of the real cause.
+        raise HTTPException(status_code=400, detail=f"Couldn't read that file: {e}")
 
     if not text.strip():
         raise HTTPException(status_code=400, detail="Couldn't extract any text from that file.")
 
-    result = strategy_parser.parse(text)
+    try:
+        result = strategy_parser.parse(text)
+    except Exception as e:
+        # Same reasoning: an LLM API error (rate limit, bad response
+        # shape, timeout) shouldn't crash the endpoint into a non-JSON
+        # response either - report it honestly instead.
+        raise HTTPException(status_code=502, detail=f"Strategy parser failed: {e}")
+
     strategy_id = db.save_strategy(
         account_id=account_id,
         conversation=[f"[uploaded file: {file.filename}]", text],
@@ -817,7 +850,10 @@ def clarify_strategy(strategy_id: int, req: StrategyClarifyRequest, x_api_key: s
         raise HTTPException(status_code=404, detail="Strategy not found")
 
     current_config = StrategyConfig.from_dict(existing["strategy"])
-    result = strategy_parser.parse(req.answer, existing=current_config)
+    try:
+        result = strategy_parser.parse(req.answer, existing=current_config)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Strategy parser failed: {e}")
 
     conversation = existing["conversation"] + [req.answer]
     db.update_strategy(
