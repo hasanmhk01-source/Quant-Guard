@@ -668,6 +668,7 @@
       });
       if (!res.ok) { const err = await res.json(); alert("Couldn't connect: " + (err.detail || res.statusText)); return; }
       loadBrokerStatus();
+      loadStatus();
       alert("Broker connected.");
     } catch (e) { alert("Couldn't reach the server."); }
   }
@@ -698,7 +699,10 @@
 
   async function loadStatus() {
     try {
-      const res = await fetch(`${API_BASE}/api/status`);
+      const key = getStoredKey();
+      const res = await fetch(`${API_BASE}/api/status`, {
+        headers: key ? { "X-API-Key": key } : {},
+      });
       const data = await res.json();
       document.getElementById("broker-status-name").textContent = data.broker;
     } catch (e) {
