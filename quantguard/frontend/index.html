@@ -698,7 +698,7 @@
 
   async function loadStatus() {
     try {
-      const res = await fetch(`${API_BASE}/`);
+      const res = await fetch(`${API_BASE}/api/status`);
       const data = await res.json();
       document.getElementById("broker-status-name").textContent = data.broker;
     } catch (e) {
